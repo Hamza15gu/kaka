@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>صوري</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --paper:#f5efe6; --card:#fffdf8; --ink:#1f1b16; --muted:#8a7f70;
+      --line:#e6dccd; --accent:#c4553a; --accent-soft:#f6e0d7; --top:64px;
+      --shadow: 0 1px 2px rgba(31,27,22,.05), 0 12px 30px -12px rgba(31,27,22,.18);
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    [hidden] { display:none !important; }
+    body { font-family:"Tajawal","Segoe UI",Tahoma,sans-serif; color:var(--ink); line-height:1.5; min-height:100vh;
+      background: radial-gradient(1000px 500px at 100% -10%, #ead9c4 0%, transparent 60%), var(--paper); }
+    button, input, textarea { font-family:inherit; font-size:1rem; }
+    button { cursor:pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    a { color:inherit; }
+
+    /* ---------- الشريط العلوي ---------- */
+    .topbar { position:sticky; top:0; z-index:20; height:var(--top); display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:0 clamp(14px,4vw,40px); background:rgba(245,239,230,.9); backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+    .logo { font-size:1.5rem; font-weight:800; text-decoration:none; }
+    .logo span { color:var(--accent); }
+    .nav { display:flex; align-items:center; gap:8px; }
+    .me { color:var(--muted); font-weight:500; font-size:.92rem; margin-inline-end:4px; white-space:nowrap; overflow:hidden; max-width:120px; text-overflow:ellipsis; }
+    .btn { border:none; border-radius:999px; padding:8px 16px; font-weight:700; background:var(--ink); color:#fff; text-decoration:none; display:inline-block; white-space:nowrap; }
+    .btn:hover { filter:brightness(1.08); }
+    .btn.accent { background:var(--accent); }
+    .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+    .btn.ghost.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .btn.danger { background:transparent; color:var(--accent); border:1px solid var(--accent-soft); padding:6px 12px; font-size:.9rem; }
+    .btn.small { padding:7px 14px; font-size:.92rem; }
+
+    .demo-banner { background:var(--accent-soft); color:var(--accent); padding:9px 14px; text-align:center; font-size:.9rem; }
+    .fatal { color:var(--accent); padding:14px; text-align:center; }
+    .empty { text-align:center; color:var(--muted); padding:40px 16px; }
+
+    /* ---------- الرئيسية ---------- */
+    .hero { text-align:center; padding:40px 20px 24px; }
+    .hero h2 { font-size:clamp(1.8rem,4vw,2.6rem); font-weight:800; letter-spacing:-.5px; }
+    .hero p { color:var(--muted); margin-top:6px; }
+    .feed { max-width:1140px; margin:0 auto; padding:10px clamp(14px,3vw,24px) 80px; columns:1; column-gap:18px; }
+    @media (min-width:640px) { .feed { columns:2; } }
+    @media (min-width:980px) { .feed { columns:3; } }
+    .post { break-inside:avoid; margin-bottom:18px; background:var(--card); border:1px solid var(--line); border-radius:22px; overflow:hidden; box-shadow:var(--shadow); animation:rise .5s ease both; }
+    .post-head { display:flex; align-items:center; gap:10px; padding:14px 16px 10px; }
+    .avatar { width:38px; height:38px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font-weight:800; color:#fff; background:linear-gradient(135deg,#c4553a,#e09a6b); }
+    .who { flex:1; min-width:0; }
+    .who strong { display:block; font-weight:700; }
+    .who small { color:var(--muted); font-size:.8rem; }
+    .del { background:none; border:none; color:var(--muted); font-size:.85rem; padding:4px 6px; }
+    .del:hover { color:var(--accent); }
+    .post img { width:100%; display:block; background:var(--line); }
+    .caption { padding:10px 16px 0; }
+    .actions { display:flex; gap:6px; padding:10px 12px 14px; }
+    .act { background:transparent; border:none; padding:6px 10px; border-radius:999px; font-weight:600; font-size:.95rem; display:flex; align-items:center; gap:6px; }
+    .act:hover { background:var(--paper); }
+    .act.liked { color:var(--accent); }
+    .comments { border-top:1px solid var(--line); padding:12px 16px 16px; display:grid; gap:8px; }
+    .comment { font-size:.93rem; }
+    .comment b { font-weight:700; }
+    .comment-form { display:flex; gap:8px; margin-top:4px; }
+    .comment-form input { flex:1; border:1px solid var(--line); background:var(--paper); border-radius:999px; padding:8px 14px; outline:none; }
+    .comment-form button { border:none; background:var(--ink); color:#fff; border-radius:999px; padding:8px 14px; font-weight:700; }
+
+    /* ---------- الملفات ---------- */
+    .page { max-width:760px; margin:0 auto; padding:28px clamp(14px,3vw,24px) 80px; display:grid; gap:18px; }
+    .page h1 { font-size:clamp(1.6rem,4vw,2.1rem); font-weight:800; }
+    .sub { color:var(--muted); margin-top:-10px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); padding:20px; }
+    .drop { border:2px dashed var(--line); border-radius:18px; padding:26px; text-align:center; background:var(--paper); cursor:pointer; display:grid; gap:8px; justify-items:center; }
+    .drop:hover { border-color:var(--accent); }
+    .drop input { display:none; }
+    .drop .big { font-size:2rem; }
+    .limit { color:var(--muted); font-size:.85rem; }
+    .upload-row { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-top:12px; }
+    .picked { color:var(--muted); font-size:.92rem; }
+    .msg-line { text-align:center; color:var(--muted); font-size:.92rem; min-height:1.3em; margin-top:8px; }
+    .list { display:grid; gap:10px; }
+    .item { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--card); border:1px solid var(--line); border-radius:16px; }
+    .icon { width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:1.35rem; background:var(--accent-soft); flex-shrink:0; }
+    .meta { flex:1; min-width:0; }
+    .name { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .info { color:var(--muted); font-size:.84rem; }
+    .item .actions { padding:0; }
+
+    /* ---------- المحادثة ---------- */
+    .chat-view { height:calc(100dvh - var(--top)); display:flex; flex-direction:column; }
+    .chat-messages { flex:1; min-height:0; overflow-y:auto; padding:16px clamp(12px,4vw,30px); display:flex; flex-direction:column; gap:8px; }
+    .bubble { max-width:min(78%,480px); padding:9px 13px; border-radius:18px; background:var(--card); border:1px solid var(--line); align-self:flex-start; animation:rise .25s ease both; word-wrap:break-word; }
+    .bubble.mine { align-self:flex-end; background:var(--accent); color:#fff; border-color:var(--accent); }
+    .bubble .sender { font-size:.8rem; font-weight:700; color:var(--accent); margin-bottom:2px; }
+    .bubble .body { white-space:pre-wrap; }
+    .bubble .time { font-size:.72rem; opacity:.65; margin-top:4px; }
+    .bubble.mine .sender { color:#fff; opacity:.85; }
+    .att-img { display:block; max-width:100%; max-height:320px; border-radius:12px; margin-top:4px; background:var(--line); min-width:120px; min-height:90px; }
+    .att-file { margin-top:4px; display:flex; align-items:center; gap:8px; width:100%; border:none; background:var(--paper); color:var(--ink); padding:10px 12px; border-radius:12px; text-align:start; }
+    .bubble.mine .att-file { background:rgba(255,255,255,.18); color:#fff; }
+    .att-file small { opacity:.7; }
+    .composer-wrap { position:relative; flex-shrink:0; padding:10px clamp(10px,3vw,24px) 14px; background:rgba(245,239,230,.95); border-top:1px solid var(--line); }
+    .menu { position:absolute; bottom:calc(100% + 6px); right:clamp(10px,3vw,24px); background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 40px -12px rgba(0,0,0,.25); padding:6px; display:grid; gap:2px; min-width:170px; z-index:10; animation:rise .18s ease both; }
+    .menu button { border:none; background:transparent; padding:11px 14px; border-radius:10px; text-align:start; font-weight:600; }
+    .menu button:hover { background:var(--paper); }
+    .chip { display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--accent-soft); color:var(--accent); border-radius:12px; padding:7px 12px; margin-bottom:8px; font-size:.9rem; font-weight:600; }
+    .chip button { border:none; background:none; color:var(--accent); font-size:1.1rem; }
+    .composer { display:flex; align-items:center; gap:8px; }
+    .plus, .send { width:44px; height:44px; border-radius:50%; border:none; flex-shrink:0; font-size:1.4rem; font-weight:700; display:grid; place-items:center; transition:transform .15s; }
+    .plus { background:var(--card); color:var(--ink); border:1px solid var(--line); }
+    .plus.open { transform:rotate(45deg); }
+    .send { background:var(--accent); color:#fff; }
+    .composer input { flex:1; min-width:0; height:44px; border-radius:999px; border:1px solid var(--line); background:var(--card); padding:0 16px; outline:none; }
+    .composer input:focus { border-color:var(--accent); }
+
+    /* ---------- النوافذ ---------- */
+    .overlay { position:fixed; inset:0; z-index:50; display:grid; place-items:center; background:rgba(31,27,22,.45); backdrop-filter:blur(4px); padding:16px; }
+    .sheet { width:100%; max-width:420px; background:var(--card); border-radius:26px; padding:24px; box-shadow:0 30px 80px -20px rgba(0,0,0,.4); display:grid; gap:12px; max-height:92vh; overflow:auto; animation:rise .3s ease both; }
+    .sheet h3 { font-size:1.4rem; font-weight:800; }
+    .sheet .close { justify-self:start; background:none; border:none; font-size:1.4rem; color:var(--muted); }
+    .field { width:100%; border:1px solid var(--line); background:var(--paper); border-radius:14px; padding:12px 14px; outline:none; resize:none; }
+    .field:focus { border-color:var(--accent); }
+    .dropzone { border:2px dashed var(--line); border-radius:18px; padding:18px; text-align:center; color:var(--muted); cursor:pointer; overflow:hidden; background:var(--paper); }
+    .dropzone img { width:100%; max-height:300px; object-fit:contain; border-radius:12px; display:block; }
+    .dropzone input { display:none; }
+    .msg { text-align:center; font-size:.9rem; color:var(--muted); min-height:1.3em; }
+    .switch { text-align:center; font-size:.92rem; color:var(--muted); }
+    .switch button { background:none; border:none; color:var(--accent); font-weight:700; }
+    .full { width:100%; padding:13px; font-size:1.02rem; }
+    .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px; font-size:.92rem; z-index:60; box-shadow:var(--shadow); animation:rise .3s ease both; white-space:nowrap; }
+    @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    @keyframes pop { 50% { transform:scale(1.35); } }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <a class="logo" href="#home">صوري<span>.</span></a>
+    <nav class="nav">
+      <span class="me" id="meName"></span>
+      <a class="btn ghost" data-nav="chat" href="#chat" id="navChat" hidden>المحادثة</a>
+      <a class="btn ghost" data-nav="files" href="#files" id="navFiles" hidden>ملفاتي</a>
+      <button class="btn accent small" id="openPublish" hidden>+ نشر</button>
+      <button class="btn small" id="openAuth">دخول</button>
+      <button class="btn ghost small" id="logoutBtn" hidden>خروج</button>
+    </nav>
+  </header>
+
+  <div class="demo-banner" id="demoBanner" hidden>وضع التجربة: البيانات لا تُحفظ ولا تصل لغيرك. أضف مفاتيح Supabase لتفعيل الحفظ الحقيقي.</div>
+
+  <!-- ================= الرئيسية ================= -->
+  <div id="view-home">
+    <section class="hero">
+      <h2>لحظاتك، بجمال أكبر</h2>
+      <p>شارك صورك مع من تحب، واكتشف ما يلتقطه الآخرون</p>
+    </section>
+    <main class="feed" id="feed"></main>
+  </div>
+
+  <!-- ================= ملفاتي ================= -->
+  <div id="view-files" hidden>
+    <main class="page">
+      <div>
+        <h1>ملفاتي</h1>
+        <p class="sub">ملفاتك الخاصة، لا يراها غيرك</p>
+      </div>
+      <section class="card">
+        <label class="drop">
+          <span class="big">📁</span>
+          <strong>اضغط لاختيار ملف</strong>
+          <span class="limit">صور، PDF، مستندات، فيديو... حتى 50 ميغابايت</span>
+          <input type="file" id="fileInput">
+        </label>
+        <div class="upload-row">
+          <span class="picked" id="picked"></span>
+          <button class="btn accent" id="uploadBtn" disabled>رفع الملف</button>
+        </div>
+        <div class="msg-line" id="uploadMsg"></div>
+      </section>
+      <section class="list" id="fileList"></section>
+    </main>
+  </div>
+
+  <!-- ================= المحادثة ================= -->
+  <div id="view-chat" class="chat-view" hidden>
+    <main class="chat-messages" id="chatMessages"></main>
+    <div class="composer-wrap">
+      <div class="menu" id="menu" hidden>
+        <button type="button" data-pick="photo">📷 صورة</button>
+        <button type="button" data-pick="file">📁 ملف</button>
+      </div>
+      <div class="chip" id="chip" hidden>
+        <span id="chipText"></span>
+        <button type="button" id="chipRemove" aria-label="إزالة">×</button>
+      </div>
+      <form class="composer" id="composer">
+        <button type="button" class="plus" id="plusBtn" aria-label="إرفاق">+</button>
+        <input type="text" id="chatText" placeholder="اكتب رسالة..." autocomplete="off">
+        <button type="submit" class="send" id="sendBtn" aria-label="إرسال">➤</button>
+      </form>
+      <input type="file" id="photoInput" accept="image/*" hidden>
+      <input type="file" id="chatFileInput" hidden>
+    </div>
+  </div>
+
+  <!-- ================= رسالة الزائر ================= -->
+  <div id="view-guest" hidden>
+    <p class="empty">هذه الصفحة للأعضاء فقط.</p>
+    <div style="text-align:center"><button class="btn" id="guestLogin">سجّل الدخول</button></div>
+  </div>
+
+  <!-- ================= نافذة الدخول ================= -->
+  <div class="overlay" id="authOverlay" hidden>
+    <form class="sheet" id="authForm">
+      <button type="button" class="close" data-close>×</button>
+      <h3 id="authTitle">مرحباً بعودتك</h3>
+      <input class="field" type="email" id="authEmail" placeholder="البريد الإلكتروني" required>
+      <input class="field" type="password" id="authPass" placeholder="كلمة المرور" minlength="6" required>
+      <input class="field" type="text" id="authName" placeholder="اسمك الظاهر للآخرين" hidden>
+      <button class="btn full" id="authSubmit">دخول</button>
+      <div class="msg" id="authMsg"></div>
+      <div class="switch" id="authSwitch"></div>
+    </form>
+  </div>
+
+  <!-- ================= نافذة النشر ================= -->
+  <div class="overlay" id="publishOverlay" hidden>
+    <form class="sheet" id="publishForm">
+      <button type="button" class="close" data-close>×</button>
+      <h3>شارك صورة</h3>
+      <label class="dropzone">
+        <span id="dropText">اضغط لاختيار صورة</span>
+        <img id="preview" hidden alt="">
+        <input type="file" id="postFile" accept="image/*">
+      </label>
+      <textarea class="field" id="captionInput" rows="2" placeholder="اكتب وصفاً لصورتك..."></textarea>
+      <button class="btn accent full" id="publishSubmit" type="submit">نشر الآن</button>
+      <div class="msg" id="publishMsg"></div>
+    </form>
+  </div>
+
+  <script>
+    // ================= الإعداد =================
+    const CONFIG = {
+      supabaseUrl: "PASTE_YOUR_PROJECT_URL_HERE",
+      supabaseKey: "PASTE_YOUR_ANON_KEY_HERE",
+    };
+    // ===========================================
+    const DEMO = CONFIG.supabaseUrl.includes("PASTE");
+    const MAX_BYTES = 50 * 1024 * 1024;
+    const BUCKETS = { files: "user-files", chat: "chat-media", photos: "photos" };
+
+    // ================= أدوات مساعدة =================
+    const $ = id => document.getElementById(id);
+    const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    const safeName = n => n.replace(/[^\w.\-]/g, "_");
+    const initial = n => esc((n || "?").trim().charAt(0));
+    const fmt = n => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+    const timeStr = t => new Date(t).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = t => new Date(t).toLocaleDateString("ar", { year: "numeric", month: "short", day: "numeric" });
+    const clone = o => JSON.parse(JSON.stringify(o));
+
+    function ago(t) {
+      const s = (Date.now() - t) / 1000;
+      const rtf = new Intl.RelativeTimeFormat("ar", { numeric: "auto" });
+      if (s < 3600) return rtf.format(-Math.max(0, Math.floor(s / 60)), "minute");
+      if (s < 86400) return rtf.format(-Math.floor(s / 3600), "hour");
+      return rtf.format(-Math.floor(s / 86400), "day");
+    }
+    function toast(text) {
+      const t = document.createElement("div");
+      t.className = "toast";
+      t.textContent = text;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2600);
+    }
+    function fileIcon(mime = "") {
+      if (mime.startsWith("image/")) return "🖼️";
+      if (mime.startsWith("video/")) return "🎞️";
+      if (mime.startsWith("audio/")) return "🎵";
+      if (mime === "application/pdf") return "📄";
+      return "📁";
+    }
+    async function shrink(file, max = 1600) {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await img.decode();
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * s);
+      c.height = Math.round(img.height * s);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      return new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+    }
+
+    // ================= الواجهة البرمجية =================
+    let sb = null;
+    if (!DEMO) {
+      try { sb = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey); }
+      catch (e) { $("view-home").insertAdjacentHTML("afterbegin", `<p class="fatal">تعذّر الاتصال بالخادم: ${esc(e.message)}</p>`); }
+    }
+
+    const demoApi = (() => {
+      let me = null;
+      const authCbs = [], msgCbs = [];
+      const posts = [
+        { id:"1", userId:"x2", username:"ليلى", imageUrl:"https://picsum.photos/seed/sea1/800/1000", caption:"صباح هادئ على الشاطئ",
+          createdAt: Date.now()-3600e3, likes:["x3"], comments:[{ id:"c1", username:"يوسف", content:"لوحة حقيقية!", createdAt: Date.now()-1800e3 }] },
+        { id:"2", userId:"x3", username:"يوسف", imageUrl:"https://picsum.photos/seed/city2/800/600", caption:"", createdAt: Date.now()-7200e3, likes:[], comments:[] },
+        { id:"3", userId:"x2", username:"ليلى", imageUrl:"https://picsum.photos/seed/forest3/800/1100", caption:"غابة لا تنتهي", createdAt: Date.now()-86400e3, likes:["x1","x3"], comments:[] },
+      ];
+      const files = [];
+      const messages = [
+        { id:"m1", sender_id:"x2", sender_name:"ليلى", body:"مرحباً بالجميع! 👋", created_at:new Date(Date.now()-600e3).toISOString() },
+        { id:"m2", sender_id:"x3", sender_name:"يوسف", body:"أهلاً ليلى، المكان جميل هنا", created_at:new Date(Date.now()-300e3).toISOString() },
+      ];
+      const emit = () => authCbs.forEach(cb => cb(me));
+      return {
+        getUser: async () => me,
+        onAuth: cb => authCbs.push(cb),
+        async signIn(email) { me = { id:"me", name: email.split("@")[0] }; emit(); },
+        async signUp(email, pass, name) { me = { id:"me", name }; emit(); },
+        async signOut() { me = null; emit(); },
+
+        async getPosts() { return clone(posts); },
+        async publish(file, caption, u) {
+          posts.unshift({ id:String(Date.now()), userId:u.id, username:u.name, imageUrl:URL.createObjectURL(file),
+            caption, createdAt:Date.now(), likes:[], comments:[] });
+        },
+        async toggleLike(id, liked, u) {
+          const p = posts.find(x => x.id === id), i = p.likes.indexOf(u.id);
+          i >= 0 ? p.likes.splice(i, 1) : p.likes.push(u.id);
+        },
+        async addComment(id, content, u) {
+          posts.find(x => x.id === id).comments.push({ id:String(Date.now()), username:u.name, content, createdAt:Date.now() });
+        },
+        async deletePost(id) { posts.splice(posts.findIndex(x => x.id === id), 1); },
+
+        async listFiles() { return clone(files); },
+        async uploadFile(file) {
+          files.unshift({ id:String(Date.now()), name:file.name, mime:file.type, size:file.size,
+            created_at:Date.now(), path:URL.createObjectURL(file) });
+        },
+        async removeFile(item) { files.splice(files.findIndex(f => f.id === item.id), 1); },
+
+        async signedUrl(path) { return path; },
+        async getMessages() { return clone(messages); },
+        subscribeMessages: cb => msgCbs.push(cb),
+        async sendMessage({ body, file, kind }, u) {
+          const m = { id:"d"+Date.now(), sender_id:u.id, sender_name:u.name, body: body || null, created_at:new Date().toISOString() };
+          if (file) {
+            m.attachment_path = URL.createObjectURL(file);
+            m.attachment_name = file.name;
+            m.attachment_mime = kind === "photo" ? "image/jpeg" : file.type;
+            m.attachment_size = file.size;
+          }
+          messages.push(m);
+          msgCbs.forEach(cb => cb(m));
+        },
+      };
+    })();
+
+    const supabaseApi = (() => {
+      const toUser = u => u ? { id:u.id, name: u.user_metadata?.username || u.email.split("@")[0] } : null;
+      const check = r => { if (r.error) throw r.error; return r.data; };
+      return {
+        async getUser() {
+          const { data: { session } } = await sb.auth.getSession();
+          return toUser(session?.user);
+        },
+        onAuth: cb => sb.auth.onAuthStateChange((_e, s) => cb(toUser(s?.user))),
+        async signIn(email, password) { const r = await sb.auth.signInWithPassword({ email, password }); check({ error: r.error, data: 1 }); },
+        async signUp(email, password, name) { const r = await sb.auth.signUp({ email, password, options: { data: { username: name } } }); check({ error: r.error, data: 1 }); },
+        async signOut() { await sb.auth.signOut(); },
+
+        async getPosts() {
+          const data = check(await sb.from("posts").select("*, likes(user_id), comments(id, username, content, created_at)").order("created_at", { ascending:false }));
+          return data.map(p => ({
+            id:p.id, userId:p.user_id, username:p.username, imageUrl:p.image_url, caption:p.caption,
+            createdAt:new Date(p.created_at).getTime(), likes:p.likes.map(l => l.user_id),
+            comments:p.comments.map(c => ({ id:c.id, username:c.username, content:c.content, createdAt:new Date(c.created_at).getTime() }))
+              .sort((a, b) => a.createdAt - b.createdAt),
+          }));
+        },
+        async publish(file, caption, u) {
+          const blob = await shrink(file);
+          const path = `${u.id}/${Date.now()}.jpg`;
+          check(await sb.storage.from(BUCKETS.photos).upload(path, blob, { contentType:"image/jpeg" }));
+          const { data } = sb.storage.from(BUCKETS.photos).getPublicUrl(path);
+          check(await sb.from("posts").insert({ user_id:u.id, username:u.name, image_url:data.publicUrl, caption }));
+        },
+        async toggleLike(id, liked, u) {
+          const r = liked
+            ? await sb.from("likes").delete().match({ post_id:id, user_id:u.id })
+            : await sb.from("likes").insert({ post_id:id, user_id:u.id });
+          check(r);
+        },
+        async addComment(id, content, u) {
+          check(await sb.from("comments").insert({ post_id:id, user_id:u.id, username:u.name, content }));
+        },
+        async deletePost(id) { check(await sb.from("posts").delete().eq("id", id)); },
+
+        async listFiles() {
+          const data = check(await sb.from("user_files").select("*").order("created_at", { ascending:false }));
+          return data.map(d => ({ ...d, created_at:new Date(d.created_at).getTime() }));
+        },
+        async uploadFile(file, u) {
+          const path = `${u.id}/${Date.now()}_${safeName(file.name)}`;
+          check(await sb.storage.from(BUCKETS.files).upload(path, file, { contentType: file.type || "application/octet-stream" }));
+          const ins = await sb.from("user_files").insert({ user_id:u.id, name:file.name, path, mime:file.type, size:file.size });
+          if (ins.error) { await sb.storage.from(BUCKETS.files).remove([path]); throw ins.error; }
+        },
+        async removeFile(item) {
+          check(await sb.storage.from(BUCKETS.files).remove([item.path]));
+          check(await sb.from("user_files").delete().eq("id", item.id));
+        },
+
+        async signedUrl(path, secs = 300) {
+          const { data, error } = await sb.storage.from(BUCKETS.chat).createSignedUrl(path, secs);
+          if (error) throw error;
+          return data.signedUrl;
+        },
+        async getMessages() {
+          return check(await sb.from("messages").select("*").order("created_at", { ascending:true }).limit(200));
+        },
+        subscribeMessages(cb) {
+          sb.channel("public-room")
+            .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages" }, p => cb(p.new))
+            .subscribe();
+        },
+        async sendMessage({ body, file, kind }, u) {
+          const row = { sender_id:u.id, sender_name:u.name, body: body || null };
+          if (file) {
+            const blob = kind === "photo" ? await shrink(file) : file;
+            const path = `${u.id}/${Date.now()}_${safeName(file.name)}`;
+            const mime = blob.type || file.type || "application/octet-stream";
+            check(await sb.storage.from(BUCKETS.chat).upload(path, blob, { contentType: mime }));
+            Object.assign(row, { attachment_path:path, attachment_name:file.name, attachment_mime:mime, attachment_size:blob.size });
+          }
+          check(await sb.from("messages").insert(row));
+        },
+      };
+    })();
+
+    const api = DEMO ? demoApi : supabaseApi;
+
+    // ================= الحالة =================
+    let user = null;
+    let chatReady = false;
+    let postsCache = [];
+    const openComments = new Set();
+    let pendingAttach = null;
+
+    // ================= التوجيه بين الصفحات =================
+    const VIEWS = { home: "view-home", files: "view-files", chat: "view-chat" };
+    const PROTECTED = ["files", "chat"];
+
+    function currentRoute() {
+      const r = location.hash.replace("#", "");
+      return VIEWS[r] ? r : "home";
+    }
+
+    function route() {
+      const name = currentRoute();
+      const guest = PROTECTED.includes(name) && !user;
+      Object.entries(VIEWS).forEach(([k, id]) => $(id).hidden = guest || k !== name);
+      $("view-guest").hidden = !guest;
+      document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("active", a.dataset.nav === name));
+      if (guest) return;
+      if (name === "home") loadPosts();
+      if (name === "files") loadFiles();
+      if (name === "chat") openChatView();
+    }
+    window.addEventListener("hashchange", route);
+
+    function renderHeader() {
+      $("meName").textContent = user ? user.name : "";
+      $("navChat").hidden = !user;
+      $("navFiles").hidden = !user;
+      $("openPublish").hidden = !user;
+      $("openAuth").hidden = !!user;
+      $("logoutBtn").hidden = !user;
+    }
+
+    // ================= النوافذ =================
+    function openOverlay(id) { $(id).hidden = false; document.body.style.overflow = "hidden"; }
+    function closeOverlays() {
+      document.querySelectorAll(".overlay").forEach(o => o.hidden = true);
+      document.body.style.overflow = "";
+    }
+    document.querySelectorAll("[data-close]").forEach(b => b.onclick = closeOverlays);
+    document.querySelectorAll(".overlay").forEach(o => o.addEventListener("click", e => { if (e.target === o) closeOverlays(); }));
+
+    // ================= الدخول والتسجيل =================
+    let authMode = "login";
+    function setAuthMode(m) {
+      authMode = m;
+      const signup = m === "signup";
+      $("authTitle").textContent = signup ? "أهلاً بك" : "مرحباً بعودتك";
+      $("authName").hidden = !signup;
+      $("authName").required = signup;
+      $("authSubmit").textContent = signup ? "إنشاء الحساب" : "دخول";
+      $("authSwitch").innerHTML = signup
+        ? 'لديك حساب؟ <button type="button" id="switchBtn">ادخل</button>'
+        : 'ليس لديك حساب؟ <button type="button" id="switchBtn">سجّل الآن</button>';
+      $("switchBtn").onclick = () => setAuthMode(signup ? "login" : "signup");
+      $("authMsg").textContent = "";
+    }
+    $("openAuth").onclick = () => { setAuthMode("login"); openOverlay("authOverlay"); };
+    $("guestLogin").onclick = () => { setAuthMode("login"); openOverlay("authOverlay"); };
+
+    $("authForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      $("authSubmit").disabled = true;
+      $("authMsg").textContent = "";
+      const email = $("authEmail").value.trim(), pass = $("authPass").value;
+      try {
+        if (authMode === "signup") await api.signUp(email, pass, $("authName").value.trim());
+        else await api.signIn(email, pass);
+        closeOverlays();
+        toast(authMode === "signup" ? "تم إنشاء الحساب" : "أهلاً بعودتك");
+      } catch (err) {
+        $("authMsg").textContent = "تعذّر ذلك: " + (err.message || "تحقق من البيانات");
+      } finally {
+        $("authSubmit").disabled = false;
+      }
+    });
+    $("logoutBtn").onclick = () => api.signOut();
+
+    function onUserChange(u) {
+      user = u;
+      renderHeader();
+      if (u && !chatReady) {
+        chatReady = true;
+        api.subscribeMessages(addChatMessage);
+      }
+      if (!u) {
+        chatReady = false;
+        $("chatMessages").innerHTML = "";
+        loadedChat = false;
+      }
+      route();
+    }
+
+    // ================= الرئيسية: المنشورات =================
+    async function loadPosts() {
+      try {
+        postsCache = await api.getPosts();
+        renderFeed();
+      } catch (e) { toast("تعذّر تحميل المنشورات"); }
+    }
+
+    function postCard(p) {
+      const liked = user && p.likes.includes(user.id);
+      const isOwner = user && p.userId === user.id;
+      const showComments = openComments.has(p.id);
+      const comments = p.comments.map(c => `<div class="comment"><b>${esc(c.username)}</b> ${esc(c.content)}</div>`).join("");
+      return `
+        <article class="post" data-id="${p.id}">
+          <div class="post-head">
+            <div class="avatar">${initial(p.username)}</div>
+            <div class="who"><strong>${esc(p.username)}</strong><small>${ago(p.createdAt)}</small></div>
+            ${isOwner ? '<button class="del" data-act="delete">حذف</button>' : ""}
+          </div>
+          <img src="${esc(p.imageUrl)}" loading="lazy" alt="">
+          ${p.caption ? `<p class="caption">${esc(p.caption)}</p>` : ""}
+          <div class="actions">
+            <button class="act ${liked ? "liked" : ""}" data-act="like"><span>${liked ? "♥" : "♡"}</span> ${p.likes.length}</button>
+            <button class="act" data-act="toggle-comments">💬 ${p.comments.length}</button>
+          </div>
+          ${showComments ? `
+            <div class="comments">
+              ${comments || '<div class="comment" style="color:var(--muted)">لا توجد تعليقات بعد</div>'}
+              ${user ? `<form class="comment-form"><input name="content" placeholder="أضف تعليقاً..." required maxlength="300"><button type="submit">إرسال</button></form>` : ""}
+            </div>` : ""}
+        </article>`;
+    }
+
+    function renderFeed() {
+      $("feed").innerHTML = postsCache.length
+        ? postsCache.map(postCard).join("")
+        : '<p class="empty" style="columns:1">لا توجد منشورات بعد. كن أول من يشارك لحظة!</p>';
+    }
+
+    $("feed").addEventListener("click", async e => {
+      const btn = e.target.closest("button[data-act]");
+      if (!btn) return;
+      const id = btn.closest(".post").dataset.id;
+      const act = btn.dataset.act;
+      if (act === "toggle-comments") {
+        openComments.has(id) ? openComments.delete(id) : openComments.add(id);
+        renderFeed();
+      }
+      if (act === "like") {
+        if (!user) return openOverlay("authOverlay");
+        const p = postsCache.find(x => x.id === id);
+        try { await api.toggleLike(id, p.likes.includes(user.id), user); loadPosts(); }
+        catch (err) { toast("تعذّر تسجيل الإعجاب"); }
+      }
+      if (act === "delete") {
+        if (!confirm("هل تريد حذف هذه الصورة؟")) return;
+        try { await api.deletePost(id); toast("تم الحذف"); loadPosts(); }
+        catch (err) { toast("تعذّر الحذف"); }
+      }
+    });
+
+    $("feed").addEventListener("submit", async e => {
+      if (!e.target.matches(".comment-form")) return;
+      e.preventDefault();
+      const id = e.target.closest(".post").dataset.id;
+      const content = e.target.content.value.trim();
+      if (!content) return;
+      try {
+        await api.addComment(id, content, user);
+        openComments.add(id);
+        loadPosts();
+      } catch (err) { toast("تعذّر إرسال التعليق"); }
+    });
+
+    // ---- نشر صورة ----
+    $("openPublish").onclick = () => {
+      $("publishForm").reset();
+      $("preview").hidden = true;
+      $("dropText").hidden = false;
+      $("publishMsg").textContent = "";
+      openOverlay("publishOverlay");
+    };
+    $("postFile").addEventListener("change", () => {
+      const f = $("postFile").files[0];
+      if (!f) return;
+      $("preview").src = URL.createObjectURL(f);
+      $("preview").hidden = false;
+      $("dropText").hidden = true;
+    });
+    $("publishForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const file = $("postFile").files[0];
+      if (!file) return ($("publishMsg").textContent = "اختر صورة أولاً");
+      $("publishSubmit").disabled = true;
+      $("publishMsg").textContent = "جارٍ النشر...";
+      try {
+        await api.publish(file, $("captionInput").value.trim(), user);
+        closeOverlays();
+        toast("تم نشر صورتك");
+        loadPosts();
+      } catch (err) {
+        $("publishMsg").textContent = "فشل النشر: " + (err.message || "خطأ");
+      } finally {
+        $("publishSubmit").disabled = false;
+      }
+    });
+
+    // ================= ملفاتي =================
+    let filesCache = [];
+    let pickedFile = null;
+
+    async function loadFiles() {
+      try {
+        filesCache = await api.listFiles();
+        renderFiles();
+      } catch (e) {
+        $("fileList").innerHTML = '<p class="empty">تعذّر تحميل الملفات.</p>';
+      }
+    }
+    function renderFiles() {
+      $("fileList").innerHTML = filesCache.length
+        ? filesCache.map(f => `
+          <div class="item" data-id="${f.id}">
+            <div class="icon">${fileIcon(f.mime)}</div>
+            <div class="meta">
+              <div class="name" title="${esc(f.name)}">${esc(f.name)}</div>
+              <div class="info">${fmt(f.size || 0)} · ${dateStr(f.created_at)}</div>
+            </div>
+            <div class="actions">
+              <button class="btn small" data-act="download">تنزيل</button>
+              <button class="btn danger" data-act="delete">حذف</button>
+            </div>
+          </div>`).join("")
+        : '<p class="empty">لم ترفع أي ملف بعد.</p>';
+    }
+
+    $("fileInput").addEventListener("change", () => {
+      const f = $("fileInput").files[0];
+      $("uploadMsg").textContent = "";
+      pickedFile = null;
+      $("picked").textContent = "";
+      $("uploadBtn").disabled = true;
+      if (!f) return;
+      if (f.size > MAX_BYTES) { $("uploadMsg").textContent = "الملف أكبر من 50 ميغابايت."; return; }
+      pickedFile = f;
+      $("picked").textContent = `${f.name} (${fmt(f.size)})`;
+      $("uploadBtn").disabled = false;
+    });
+    $("uploadBtn").onclick = async () => {
+      if (!pickedFile) return;
+      $("uploadBtn").disabled = true;
+      $("uploadMsg").textContent = "جارٍ الرفع...";
+      try {
+        await api.uploadFile(pickedFile, user);
+        $("uploadMsg").textContent = "تم الرفع ✓";
+        $("fileInput").value = "";
+        pickedFile = null;
+        $("picked").textContent = "";
+        loadFiles();
+      } catch (e) {
+        $("uploadMsg").textContent = "فشل الرفع: " + (e.message || "خطأ");
+        $("uploadBtn").disabled = false;
+      }
+    };
+    $("fileList").addEventListener("click", async e => {
+      const btn = e.target.closest("button[data-act]");
+      if (!btn) return;
+      const item = filesCache.find(f => String(f.id) === btn.closest(".item").dataset.id);
+      if (!item) return;
+      if (btn.dataset.act === "download") {
+        try { window.open(await api.signedUrl(item.path), "_blank"); }
+        catch (err) { toast("تعذّر التنزيل"); }
+      }
+      if (btn.dataset.act === "delete") {
+        if (!confirm(`حذف "${item.name}" نهائياً؟`)) return;
+        try { await api.removeFile(item); loadFiles(); }
+        catch (err) { toast("تعذّر الحذف"); }
+      }
+    });
+
+    // ================= المحادثة =================
+    let loadedChat = false;
+    const chatEl = $("chatMessages");
+    const chatShown = new Set();
+
+    async function openChatView() {
+      if (loadedChat) return;
+      loadedChat = true;
+      try {
+        const history = await api.getMessages();
+        chatEl.innerHTML = "";
+        chatShown.clear();
+        if (!history.length) chatEl.innerHTML = '<p class="empty" id="chatEmpty">لا توجد رسائل بعد. ابدأ المحادثة!</p>';
+        history.forEach(addChatMessage);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      } catch (e) { toast("تعذّر تحميل المحادثة"); }
+    }
+
+    function chatNode(m) {
+      const mine = user && m.sender_id === user.id;
+      const div = document.createElement("div");
+      div.className = "bubble" + (mine ? " mine" : "");
+      let att = "";
+      if (m.attachment_path) {
+        if ((m.attachment_mime || "").startsWith("image/")) {
+          att = `<img class="att-img" data-path="${esc(m.attachment_path)}" alt="">`;
+        } else {
+          att = `<button class="att-file" data-path="${esc(m.attachment_path)}">📄 <span>${esc(m.attachment_name || "ملف")}</span> <small>${fmt(m.attachment_size || 0)}</small></button>`;
+        }
+      }
+      div.innerHTML = `${mine ? "" : `<div class="sender">${esc(m.sender_name)}</div>`}
+        ${att}
+        ${m.body ? `<div class="body">${esc(m.body)}</div>` : ""}
+        <div class="time">${timeStr(m.created_at)}</div>`;
+      const img = div.querySelector(".att-img");
+      if (img) api.signedUrl(img.dataset.path).then(u => img.src = u).catch(() => img.alt = "تعذّر تحميل الصورة");
+      return div;
+    }
+
+    function addChatMessage(m) {
+      if (chatShown.has(m.id)) return;
+      chatShown.add(m.id);
+      const empty = document.getElementById("chatEmpty");
+      if (empty) empty.remove();
+      chatEl.appendChild(chatNode(m));
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    chatEl.addEventListener("click", async e => {
+      const btn = e.target.closest(".att-file");
+      if (!btn) return;
+      try { window.open(await api.signedUrl(btn.dataset.path), "_blank"); }
+      catch (err) { toast("تعذّر فتح الملف"); }
+    });
+
+    // قائمة (+)
+    const menu = $("menu"), plusBtn = $("plusBtn");
+    const closeMenu = () => { menu.hidden = true; plusBtn.classList.remove("open"); };
+    plusBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      plusBtn.classList.toggle("open", !menu.hidden);
+    });
+    document.addEventListener("click", e => { if (!menu.contains(e.target) && e.target !== plusBtn) closeMenu(); });
+    menu.querySelectorAll("button[data-pick]").forEach(b => b.addEventListener("click", () => {
+      closeMenu();
+      $(b.dataset.pick === "photo" ? "photoInput" : "chatFileInput").click();
+    }));
+
+    function setAttach(file, kind) {
+      if (file.size > MAX_BYTES) return toast("الملف أكبر من 50 ميغابايت");
+      pendingAttach = { file, kind };
+      $("chipText").textContent = (kind === "photo" ? "📷 " : "📄 ") + file.name + " (" + fmt(file.size) + ")";
+      $("chip").hidden = false;
+    }
+    const clearAttach = () => { pendingAttach = null; $("chip").hidden = true; };
+    $("photoInput").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) setAttach(f, "photo"); });
+    $("chatFileInput").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) setAttach(f, "file"); });
+    $("chipRemove").onclick = clearAttach;
+
+    $("composer").addEventListener("submit", async e => {
+      e.preventDefault();
+      const body = $("chatText").value.trim();
+      if (!body && !pendingAttach) return;
+      $("sendBtn").disabled = true;
+      try {
+        await api.sendMessage({ body, file: pendingAttach?.file, kind: pendingAttach?.kind }, user);
+        $("chatText").value = "";
+        clearAttach();
+      } catch (err) {
+        toast("تعذّر الإرسال: " + (err.message || "خطأ"));
+      } finally {
+        $("sendBtn").disabled = false;
+        $("chatText").focus();
+      }
+    });
+
+    // ================= البدء =================
+    async function start() {
+      if (DEMO) $("demoBanner").hidden = false;
+      if (!DEMO && !sb) return;
+      api.onAuth(onUserChange);
+      const u = await api.getUser();
+      onUserChange(u);
+      setInterval(() => { if (currentRoute() === "home") loadPosts(); }, 30000);
+    }
+    start();
+  </script>
+</body>
+</html>
