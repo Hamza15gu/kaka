@@ -229,8 +229,9 @@
       <input class="field" type="password" id="authPass" placeholder="كلمة المرور" minlength="6" required>
       <input class="field" type="text" id="authName" placeholder="اسمك الظاهر للآخرين" hidden>
       <button class="btn full" id="authSubmit">دخول</button>
+      <button class="btn ghost full" id="anonBtn" type="button">ادخل بدون تسجيل</button>
       <div class="msg" id="authMsg"></div>
-      <div class="switch" id="authSwitch"></div>
+      <div class="switch" id="authSwitch" hidden></div>
     </form>
   </div>
 
@@ -333,6 +334,7 @@
         async signIn(email) { me = { id:"me", name: email.split("@")[0] }; saveMe(); emit(); },
         async signUp(email, pass, name) { me = { id:"me", name }; saveMe(); emit(); },
         async signOut() { me = null; saveMe(); emit(); },
+        async signInAnonymous(name) { me = { id:"me", name: name || "زائر" }; saveMe(); emit(); },
 
         async getPosts() { return clone(posts); },
         async publish(file, caption, u) {
@@ -373,7 +375,7 @@
     })();
 
     const supabaseApi = (() => {
-      const toUser = u => u ? { id:u.id, name: u.user_metadata?.username || u.email.split("@")[0] } : null;
+      const toUser = u => u ? { id:u.id, name: u.user_metadata?.username || (u.email ? u.email.split("@")[0] : "زائر") } : null;
       const check = r => { if (r.error) throw r.error; return r.data; };
       return {
         async getUser() {
@@ -384,6 +386,10 @@
         async signIn(email, password) { const r = await sb.auth.signInWithPassword({ email, password }); check({ error: r.error, data: 1 }); },
         async signUp(email, password, name) { const r = await sb.auth.signUp({ email, password, options: { data: { username: name } } }); check({ error: r.error, data: 1 }); },
         async signOut() { await sb.auth.signOut(); },
+        async signInAnonymous(name) {
+          const { error } = await sb.auth.signInAnonymously({ options: { data: { username: name } } });
+          if (error) throw error;
+        },
 
         async getPosts() {
           const data = check(await sb.from("posts").select("*, likes(user_id), comments(id, username, content, created_at)").order("created_at", { ascending:false }));
@@ -465,11 +471,23 @@
 
     // ================= التوجيه بين الصفحات =================
     const VIEWS = { home: "view-home", files: "view-files", chat: "view-chat" };
-    const PROTECTED = ["files", "chat"];
+    const PROTECTED = ["files"];
 
     function currentRoute() {
       const r = location.hash.replace("#", "");
-      return VIEWS[r] ? r : "home";
+      return VIEWS[r] ? r : "chat";
+    }
+
+    async function joinAsGuest() {
+      if (user) return;
+      const name = (prompt("اكتب اسمك للدخول إلى المحادثة") || "").trim();
+      if (!name) { location.hash = "#home"; return; }
+      try {
+        await api.signInAnonymous(name);
+      } catch (err) {
+        toast("تعذّر الدخول كزائر");
+        location.hash = "#home";
+      }
     }
 
     function route() {
@@ -481,13 +499,17 @@
       if (guest) return;
       if (name === "home") loadPosts();
       if (name === "files") loadFiles();
-      if (name === "chat") { openChatView(); fitChat(); }
+      if (name === "chat") {
+        if (!user) { joinAsGuest(); return; }
+        openChatView();
+        fitChat();
+      }
     }
     window.addEventListener("hashchange", route);
 
     function renderHeader() {
       $("meName").textContent = user ? user.name : "";
-      $("navChat").hidden = !user;
+      $("navChat").hidden = false;
       $("navFiles").hidden = !user;
       $("openPublish").hidden = !user;
       $("openAuth").hidden = !!user;
@@ -495,7 +517,9 @@
     }
 
     // ================= النوافذ =================
-    function openOverlay(id) { $(id).hidden = false; document.body.style.overflow = "hidden"; }
+    function openOverlay(id) {
+      if (id === "authOverlay") return joinAsGuest();
+      $(id).hidden = false; document.body.style.overflow = "hidden"; }
     function closeOverlays() {
       document.querySelectorAll(".overlay").forEach(o => o.hidden = true);
       document.body.style.overflow = "";
@@ -538,6 +562,18 @@
       }
     });
     $("logoutBtn").onclick = () => api.signOut();
+
+    $("anonBtn").onclick = async () => {
+      const name = (prompt("اكتب الاسم الذي سيظهر للآخرين") || "").trim();
+      if (!name) return;
+      try {
+        await api.signInAnonymous(name);
+        closeOverlays();
+        toast("أهلاً " + name);
+      } catch (err) {
+        $("authMsg").textContent = "تعذّر الدخول: " + (err.message || "تحقق من إعدادات Supabase");
+      }
+    };
 
     function onUserChange(u) {
       user = u;
