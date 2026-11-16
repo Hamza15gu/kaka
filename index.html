@@ -478,15 +478,21 @@
       return VIEWS[r] ? r : "chat";
     }
 
+    let joining = false;
     async function joinAsGuest() {
-      if (user) return;
-      const name = (prompt("اكتب اسمك للدخول إلى المحادثة") || "").trim();
-      if (!name) { location.hash = "#home"; return; }
+      if (user || joining) return;
+      joining = true;
+      let name = localStorage.getItem("member_name");
+      if (!name) {
+        name = "عضو" + Math.floor(1000 + Math.random() * 9000);
+        localStorage.setItem("member_name", name);
+      }
       try {
         await api.signInAnonymous(name);
       } catch (err) {
-        toast("تعذّر الدخول كزائر");
-        location.hash = "#home";
+        toast("تعذّر الدخول، حاول مرة أخرى");
+      } finally {
+        joining = false;
       }
     }
 
@@ -894,6 +900,7 @@
       api.onAuth(onUserChange);
       const u = await api.getUser();
       onUserChange(u);
+      if (!u) joinAsGuest();
       setInterval(() => { if (currentRoute() === "home") loadPosts(); }, 30000);
     }
     start();
